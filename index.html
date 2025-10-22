@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Radar HUD</title>
+    <style>
+        /* --- Estil general i tema blau --- */
+        body {
+            background-color: #020a1f; /* Blau fosc quasi negre */
+            color: #00ffff; /* Cian brillant (estil HUD) */
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            border-bottom: 2px solid #00aaff;
+            padding-bottom: 5px;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        canvas#radar {
+            background-color: #04102a;
+            border: 2px solid #00aaff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #00aaff inset, 0 0 10px #00aaff;
+        }
+        .info-panel {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            border: 1px solid #005577;
+            padding: 10px;
+        }
+        .network-item {
+            padding: 5px;
+            border-bottom: 1px dashed #005577;
+        }
+        .network-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>WiFi RADAR [OFFLINE SCANNER]</h1>
+        
+        <!-- El HUD del radar -->
+        <canvas id="radar" width="400" height="400"></canvas>
+        
+        <!-- Tauler d'informació de xarxes -->
+        <div class="info-panel">
+            <h2>Xarxes Detectades (<span id="network-count">0</span>)</h2>
+            <div id="network-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('radar');
+        const ctx = canvas.getContext('2d');
+        const radarSize = canvas.width;
+        const radarCenter = radarSize / 2;
+
+        function drawRadarGrid() {
+            ctx.clearRect(0, 0, radarSize, radarSize); // Esborra el canvas
+            ctx.strokeStyle = '#00aaff'; // Color de les línies del radar
+            ctx.fillStyle = '#00ffff';   // Color del text i punts
+            ctx.lineWidth = 0.5;
+
+            // Dibuixar cercles concèntrics
+            for (let i = 1; i <= 4; i++) {
+                ctx.beginPath();
+                ctx.arc(radarCenter, radarCenter, (radarCenter / 4) * i, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Dibuixar línies creuades
+            ctx.beginPath();
+            ctx.moveTo(radarCenter, 0);
+            ctx.lineTo(radarCenter, radarSize);
+            ctx.moveTo(0, radarCenter);
+            ctx.lineTo(radarSize, radarCenter);
+            ctx.stroke();
+        }
+
+        function drawNetwork(network, index, total) {
+            // Aquesta és la part clau. No tenim la DIRECCIÓ, només la distància.
+            // Una forma de visualitzar-ho és repartir els punts al voltant del cercle
+            // a la distància corresponent.
+            const maxDistance = 100; // Distància màxima en metres que representarà el radar
+            const distance = Math.min(network.distance_m, maxDistance);
+            const radius = (distance / maxDistance) * radarCenter;
+            
+            // Repartim els angles per evitar que tots els punts estiguin a la mateixa línia
+            const angle = (index / total) * 2 * Math.PI;
+
+            const x = radarCenter + radius * Math.cos(angle);
+            const y = radarCenter + radius * Math.sin(angle);
+
+            // Dibuixar el punt de la xarxa
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Escriure el nom de la xarxa (SSID)
+            ctx.font = '10px Courier New';
+            ctx.fillText(network.ssid, x + 8, y + 4);
+        }
+
+        async function updateData() {
+            try {
+                const response = await fetch('/api/scan');
+                const networks = await response.json();
+
+                drawRadarGrid();
+                
+                const networkList = document.getElementById('network-list');
+                const networkCount = document.getElementById('network-count');
+                
+                networkList.innerHTML = ''; // Neteja la llista
+                networkCount.innerText = networks.length;
+
+                networks.forEach((net, index) => {
+                    // Dibuixar al radar
+                    drawNetwork(net, index, networks.length);
+
+                    // Afegir a la llista de text
+                    const item = document.createElement('div');
+                    item.className = 'network-item';
+                    item.innerHTML = `<strong>${net.ssid}</strong> | Dist: ~${net.distance_m}m | RSSI: ${net.rssi}dBm`;
+                    networkList.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error('Error al refrescar les dades:', error);
+            }
+        }
+
+        // Inicia el bucle de refresc
+        drawRadarGrid(); // Dibuixa la graella inicial
+        setInterval(updateData, 3000); // Refresca cada 3 segons
+    </script>
+</body>
+</html>
