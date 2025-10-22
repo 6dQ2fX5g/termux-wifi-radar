@@ -28,7 +28,7 @@ An offline, local WiFi scanner and radar HUD for Termux. This tool leverages the
 Open Termux and paste the following command. It will automatically install all dependencies, download the source code, and create a convenient `wifi-radar` command.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/el-teu-nom/termux-wifi-radar/main/install.sh | bash
+curl -sL https://github.com/6dQ2fX5g/termux-wifi-radar/tree/main/install.sh | bash
 ```
 
 ---
